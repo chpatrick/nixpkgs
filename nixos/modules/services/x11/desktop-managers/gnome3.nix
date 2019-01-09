@@ -79,6 +79,36 @@ in {
       };
 
       debug = mkEnableOption "gnome-session debug messages";
+
+      flashback = {
+        enableMetacity = mkEnableOption "Enable the standard GNOME Flashback session with Metacity.";
+
+        customSessions = mkOption {
+          type = types.listOf (types.submodule {
+            options = {
+              wmName = mkOption {
+                type = types.str;
+                description = "The filename-compatible name of the window manager to use.";
+                example = "xmonad";
+              };
+
+              wmLabel = mkOption {
+                type = types.str;
+                description = "The pretty name of the window manager to use.";
+                example = "XMonad";
+              };
+
+              wmCommand = mkOption {
+                type = types.str;
+                description = "The executable of the window manager to use.";
+                example = "\${pkgs.haskellPackages.xmonad}/bin/xmonad";
+              };
+            };
+          });
+          default = [];
+          description = "Other GNOME Flashback sessions to enable.";
+        };
+      };
     };
 
     environment.gnome3.excludePackages = mkOption {
@@ -132,7 +162,15 @@ in {
 
     fonts.fonts = [ pkgs.dejavu_fonts pkgs.cantarell-fonts ];
 
-    services.xserver.displayManager.extraSessionFilePackages = [ pkgs.gnome3.gnome-session ];
+    services.xserver.displayManager.extraSessionFilePackages = [ pkgs.gnome3.gnome-session ]
+      ++ map
+        (wm: pkgs.gnome3.gnome-flashback.mkSessionForWm {
+          inherit (wm) wmName wmLabel wmCommand;
+        }) (optional cfg.flashback.enableMetacity {
+              wmName = "metacity";
+              wmLabel = "Metacity";
+              wmCommand = "${pkgs.gnome3.metacity}/bin/metacity";
+            } ++ cfg.flashback.customSessions);
 
     services.xserver.displayManager.sessionCommands = ''
       if test "$XDG_CURRENT_DESKTOP" = "GNOME"; then
@@ -180,7 +218,6 @@ in {
 
     # Needed for themes and backgrounds
     environment.pathsToLink = [ "/share" ];
-
   };
 
 
