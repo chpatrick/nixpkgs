@@ -1,6 +1,5 @@
 { stdenv
 , autoreconfHook
-, bash
 , fetchurl
 , fetchpatch
 , gettext
@@ -24,7 +23,10 @@
 , substituteAll
 , upower
 , wrapGAppsHook
-, xkeyboard_config }:
+, writeTextFile
+, writeShellScriptBin
+, xkeyboard_config
+}:
 
 let
   pname = "gnome-flashback";
@@ -90,55 +92,56 @@ in stdenv.mkDerivation rec {
       attrPath = "gnome3.${pname}";
     };
 
-    mkSessionForWm = { wmName, wmLabel, wmCommand }: stdenv.mkDerivation {
-      name = "gnome-flashback-${wmName}";
+    mkSessionForWm = { wmName, wmLabel, wmCommand }:
+      let
+        wmApplication = writeTextFile {
+          name = "gnome-flashback-${wmName}-wm";
+          destination = "/share/applications/${wmName}.desktop";
+          text = ''
+            [Desktop Entry]
+            Type=Application
+            Encoding=UTF-8
+            Name=${wmLabel}
+            Exec=${wmCommand}
+            NoDisplay=true
+            X-GNOME-WMName=${wmLabel}
+            X-GNOME-Autostart-Phase=WindowManager
+            X-GNOME-Provides=windowmanager
+            X-GNOME-Autostart-Notify=false
+          '';
+        };
 
-      buildCommand = ''
-        mkdir -p $out/libexec
-        cat << EOF > $out/libexec/gnome-flashback-${wmName}
-        #!${bash}/bin/sh
+      gnomeSession = writeTextFile {
+        name = "gnome-flashback-${wmName}-gnome-session";
+        destination = "/share/gnome-session/sessions/gnome-flashback-${wmName}.session";
+        text = ''
+          [GNOME Session]
+          Name=GNOME Flashback (${wmLabel})
+          ${requiredComponents wmName}
+        '';
+      };
 
-        if [ -z \$XDG_CURRENT_DESKTOP ]; then
+      executable = writeShellScriptBin "gnome-flashback-${wmName}" ''
+        if [ -z $XDG_CURRENT_DESKTOP ]; then
           export XDG_CURRENT_DESKTOP="GNOME-Flashback:GNOME"
         fi
 
-        export XDG_DATA_DIRS=$out/share:${gnome-flashback}/share:${gnome-panel}/share:\$XDG_DATA_DIRS
+        export XDG_DATA_DIRS=${wmApplication}/share:${gnomeSession}/share:${gnome-flashback}/share:${gnome-panel}/share:$XDG_DATA_DIRS
 
-        exec ${gnome-session}/bin/gnome-session --session=gnome-flashback-${wmName} "\$@"
-        EOF
-        chmod +x $out/libexec/gnome-flashback-${wmName}
+        exec ${gnome-session}/bin/gnome-session --session=gnome-flashback-${wmName} "$@"
+      '';
 
-        mkdir -p $out/share/gnome-session/sessions
-        cat << 'EOF' > $out/share/gnome-session/sessions/gnome-flashback-${wmName}.session
-        [GNOME Session]
-        Name=GNOME Flashback (${wmLabel})
-        ${requiredComponents wmName}
-        EOF
-
-        mkdir -p $out/share/applications
-        cat << 'EOF' > $out/share/applications/${wmName}.desktop
-        [Desktop Entry]
-        Type=Application
-        Encoding=UTF-8
-        Name=${wmLabel}
-        Exec=${wmCommand}
-        NoDisplay=true
-        X-GNOME-WMName=${wmLabel}
-        X-GNOME-Autostart-Phase=WindowManager
-        X-GNOME-Provides=windowmanager
-        X-GNOME-Autostart-Notify=false
-        EOF
-
-        mkdir -p $out/share/xsessions
-        cat << EOF > $out/share/xsessions/gnome-flashback-${wmName}.desktop
+    in writeTextFile {
+      name = "gnome-flashback-${wmName}-xsession";
+      destination = "/share/xsessions/gnome-flashback-${wmName}.desktop";
+      text = ''
         [Desktop Entry]
         Name=GNOME Flashback (${wmLabel})
         Comment=This session logs you into GNOME Flashback with ${wmLabel}
-        Exec=$out/libexec/gnome-flashback-${wmName}
+        Exec=${executable}/bin/gnome-flashback-${wmName}
         TryExec=${wmCommand}
         Type=Application
         DesktopNames=GNOME-Flashback;GNOME;
-        EOF
       '';
     };
   };
