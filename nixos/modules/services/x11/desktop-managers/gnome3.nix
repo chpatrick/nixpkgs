@@ -158,23 +158,19 @@ in
         customSessions = mkOption {
           type = types.listOf (types.submodule {
             options = {
-              wmName = mkOption {
-                type = types.str;
-                description = "The filename-compatible name of the window manager to use.";
-                example = "xmonad";
-              };
-
-              wmLabel = mkOption {
+              label = mkOption {
                 type = types.str;
                 description = "The pretty name of the window manager to use.";
                 example = "XMonad";
               };
 
-              wmCommand = mkOption {
+              command = mkOption {
                 type = types.str;
                 description = "The executable of the window manager to use.";
                 example = "\${pkgs.haskellPackages.xmonad}/bin/xmonad";
               };
+
+              enableGnomePanel = mkEnableOption "the GNOME panel in this session";
             };
           });
           default = [];
@@ -240,11 +236,11 @@ in
     (mkIf flashbackEnabled {
       services.xserver.displayManager.sessionPackages =  map
         (wm: pkgs.gnome3.gnome-flashback.mkSessionForWm {
-          inherit (wm) wmName wmLabel wmCommand;
+          inherit (wm) label command enableGnomePanel;
         }) (optional cfg.flashback.enableMetacity {
-              wmName = "metacity";
-              wmLabel = "Metacity";
-              wmCommand = "${pkgs.gnome3.metacity}/bin/metacity";
+              label = "Metacity";
+              command = "${pkgs.gnome3.metacity}/bin/metacity";
+              enableGnomePanel = true;
             } ++ cfg.flashback.customSessions);
 
       security.pam.services.gnome-flashback = {
@@ -255,7 +251,7 @@ in
         gnome-flashback
       ] ++ (map
         (wm: gnome-flashback.mkSystemdTargetForWm {
-          inherit (wm) wmName;
+          inherit (wm) label command enableGnomePanel;
         }) cfg.flashback.customSessions);
 
         # gnome-panel needs these for menu applet
