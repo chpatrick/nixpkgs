@@ -1,0 +1,19 @@
+diff --git a/pyproject.toml b/pyproject.toml
+index 5975ccc9..39349967 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -1,11 +1,9 @@
+ [build-system]
+ requires = [
+-    "scikit-build-core>=0.3.3",
+-    "pybind11==3.0.1",
+-    "pybind11_stubgen @ git+https://github.com/sarlinpe/pybind11-stubgen@sarlinpe/fix-2025-08-20",
++    "scikit-build-core",
++    "pybind11",
++    "pybind11_stubgen",
+     "numpy",
+-    "ruff==0.15.0",
+-    "clang-format==21.1.8",
+ ]
+ build-backend = "scikit_build_core.build"
+ 
