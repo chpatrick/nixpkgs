@@ -94,6 +94,12 @@
   libxfs,
   liburing,
   withSystemd ? lib.meta.availableOn stdenv.hostPlatform systemd,
+
+  # Test Dependencies
+  ctestCheckHook,
+  net-tools,
+
+  enableTests ? true,
 }:
 
 # We must have one crypto library
@@ -320,7 +326,7 @@ stdenv.mkDerivation {
     # So it's probably not worth trying to fix that for this Ceph version,
     # and instead just disable Ceph's Jaeger support.
     (lib.cmakeBool "WITH_JAEGER" false)
-    (lib.cmakeBool "WITH_TESTS" false)
+    (lib.cmakeBool "WITH_TESTS" enableTests)
 
     # Use our own libraries, where possible
     (lib.cmakeBool "WITH_SYSTEM_ARROW" true) # Only used if other options enable Arrow support.
@@ -393,7 +399,60 @@ stdenv.mkDerivation {
     "man"
   ];
 
-  doCheck = false; # uses pip to install things from the internet
+  nativeCheckInputs = [
+    ctestCheckHook
+    net-tools # for unittest_hostname
+  ];
+
+  doCheck = enableTests;
+
+  preCheck = ''
+    # The unit tests aren't part of the default target.
+    cmake --build . --target tests -j $NIX_BUILD_CORES
+    # Otherwise the tests leave __pycache__ in the mgr modules that get installed.
+    export PYTHONDONTWRITEBYTECODE=1
+    # Skips the BlueFS tests that upstream also skips on its CI, such as a
+    # timing comparison that is flaky with tests running in parallel.
+    export JENKINS_HOME="$NIX_BUILD_TOP"
+  '';
+
+  # installPhase should still byte-compile the Python packages.
+  postCheck = ''
+    unset PYTHONDONTWRITEBYTECODE JENKINS_HOME
+  '';
+
+  disabledTests = [
+    # need network access
+    "run-cli-tests"
+    "unittest_mon_monmap"
+    # needs user extended attributes on the build filesystem
+    "unittest_rgw_posix_driver"
+    # slow (~25 min), which matters on Hydra
+    "readable.sh"
+  ];
+
+  ctestFlags = [
+    "--exclude-regex"
+    # run-tox-* and its *-venv-for-* fixtures pip-install from PyPI;
+    # run-rbd-unit-tests-* take ~1.5 h serially and one of them needs DNS
+    "^(run-tox-|setup-venv-for-|teardown-venv-for-|run-rbd-unit-tests-)"
+  ];
+
+  # WITH_TESTS also installs ~150 test and benchmark files; don't ship them.
+  postInstall = lib.optionalString enableTests ''
+    # DESTDIR (unlike --prefix) also redirects the absolute CMAKE_INSTALL_BINDIR.
+    DESTDIR="$NIX_BUILD_TOP/ceph-tests" cmake --install src/test
+    (cd "$NIX_BUILD_TOP/ceph-tests" && find . ! -type d) | while read -r f; do
+      rm "''${f#.}"
+    done
+
+    # installed from outside src/test, but only with WITH_TESTS
+    rm $out/bin/{ceph-client-debug,ceph-coverage,ceph-debugpack,ceph-dedup-daemon,ceph-dedup-tool} \
+      $out/bin/{ceph_psim,ceph_radosacl,ceph_rgw_jsonparser,ceph_rgw_multiparser} \
+      $out/bin/{ceph_scratchtool,ceph_scratchtoolpp} \
+      $out/share/man/man8/ceph-debugpack.8 \
+      $lib/lib/ceph/ceph-monstore-update-crush.sh
+  '';
 
   # Takes 7+h to build with 2 cores.
   requiredSystemFeatures = [ "big-parallel" ];

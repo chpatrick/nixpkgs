@@ -1,0 +1,28 @@
+From 9cca28ff8aad01e9b3749b71fab68269959d88b1 Mon Sep 17 00:00:00 2001
+From: Patrick Chilton <chpatrick@gmail.com>
+Date: Fri, 30 Oct 2026 17:33:06 +0100
+Subject: [PATCH] rgw/dbstore: link unittest_dbstore_mgr_tests against gtest
+
+It only linked gtest_main, relying on add_ceph_unittest() to add gtest
+via UNITTEST_LIBS. That is only set in src/test, so with a system gtest
+the link fails with "DSO missing from command line". Link gtest
+directly, like unittest_dbstore_tests does.
+
+Signed-off-by: Patrick Chilton <chpatrick@gmail.com>
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_015iJNaVvTHvLN83P1TKdUHL
+---
+ src/rgw/driver/dbstore/tests/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/rgw/driver/dbstore/tests/CMakeLists.txt b/src/rgw/driver/dbstore/tests/CMakeLists.txt
+index 4e60dcf5ee2..7b5d142dd95 100644
+--- a/src/rgw/driver/dbstore/tests/CMakeLists.txt
++++ b/src/rgw/driver/dbstore/tests/CMakeLists.txt
+@@ -13,5 +13,5 @@ target_link_libraries(unittest_dbstore_tests ${CMAKE_LINK_LIBRARIES})
+ add_ceph_unittest(unittest_dbstore_tests)
+ 
+ add_executable(unittest_dbstore_mgr_tests dbstore_mgr_tests.cc)
+-target_link_libraries(unittest_dbstore_mgr_tests dbstore gtest_main)
++target_link_libraries(unittest_dbstore_mgr_tests dbstore gtest gtest_main)
+ add_ceph_unittest(unittest_dbstore_mgr_tests)

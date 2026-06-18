@@ -1,0 +1,29 @@
+From 62df0ddc6c45b85c0cecede3a06fbf16de8eea83 Mon Sep 17 00:00:00 2001
+From: Patrick Chilton <chpatrick@gmail.com>
+Date: Fri, 30 Oct 2026 05:08:25 +0100
+Subject: [PATCH] common: initialize SnapRealmInfoNew::change_attr
+
+The default constructor left change_attr uninitialized. This makes
+check-generated.sh fail nondeterministically on the default-constructed
+test instance.
+
+Signed-off-by: Patrick Chilton <chpatrick@gmail.com>
+(cherry picked from commit e59ed63e634536096588812972cedc403a30413e)
+[backported to 20.2, which lacks the flags field]
+---
+ src/common/snap_types.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/common/snap_types.h b/src/common/snap_types.h
+index 45502f9fa12..b3b9940edd2 100644
+--- a/src/common/snap_types.h
++++ b/src/common/snap_types.h
+@@ -51,7 +51,7 @@ WRITE_CLASS_ENCODER(SnapRealmInfo)
+ struct SnapRealmInfoNew {
+   SnapRealmInfo info;
+   utime_t last_modified;
+-  uint64_t change_attr;
++  uint64_t change_attr = 0;
+ 
+   SnapRealmInfoNew() {
+   }
